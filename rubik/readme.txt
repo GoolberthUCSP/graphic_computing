@@ -11,4 +11,4 @@ Movimientos: Teclas numéricas
 7: Frente
 8: Arriba
 9: Atrás 
-Shift+num: Inverso
+Alt izq + num: Movimiento inverso
