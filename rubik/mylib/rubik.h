@@ -64,27 +64,6 @@ vector<pair<Vec4f, set<cube_side::Side>>> cubes_variables({
     {Vec4f(cube_size, -cube_size, cube_size, 1.0f), {DOWN, FRONT, RIGHT}},
 });
 
-map<string, pair<rubik_side::Side, bool>> rubik_movs{
-    {"U+", {rubik_side::U, true}},
-    {"U-", {rubik_side::U, false}},
-    {"D+", {rubik_side::D, true}},
-    {"D-", {rubik_side::D, false}},
-    {"R+", {rubik_side::R, true}},
-    {"R-", {rubik_side::R, false}},
-    {"L+", {rubik_side::L, true}},
-    {"L-", {rubik_side::L, false}},
-    {"F+", {rubik_side::F, true}},
-    {"F-", {rubik_side::F, false}},
-    {"B+", {rubik_side::B, true}},
-    {"B-", {rubik_side::B, false}},
-    {"M+", {rubik_side::M, true}},
-    {"M-", {rubik_side::M, false}},
-    {"E+", {rubik_side::E, true}},
-    {"E-", {rubik_side::E, false}},
-    {"S+", {rubik_side::S, true}},
-    {"S-", {rubik_side::S, false}}
-};
-
 class Rubik{
     vector<Cube*> cubes;
     Vec4f centroid, center;
@@ -128,8 +107,6 @@ public:
     MtxX<int> get_matrix(rubik_side::Side side);
     MtxX<int> rotate_matrix(MtxX<int> mat, bool clockwise);
     void update_cube_indices(rubik_side::Side side, bool clockwise);
-
-    void apply_movements(vector<string> movements);
     bool rotate_side(rubik_side::Side side, bool clockwise= true, float angle= 90.0f);
 };
 
@@ -269,14 +246,6 @@ void Rubik::update_centroid(){
     }
     centroid = centroid / cubes.size();
     centroid(3) = 0.0f;
-}
-
-void Rubik::apply_movements(vector<string> movements){
-    for (auto &movement : movements){
-        rubik_side::Side side = rubik_movs[movement].first;
-        bool clockwise = rubik_movs[movement].second;
-        this->rotate_side(side, clockwise, 90.0f);
-    }
 }
 
 #endif

@@ -12,7 +12,8 @@
 #endif
 
 #include <glm/gtc/type_ptr.hpp>
-
+#include <cstdlib>
+#include <ctime>
 #include <iostream>
 #include <cmath>
 #include <vector>
@@ -21,12 +22,19 @@
 #include <chrono>
 #include <string>
 #include <filesystem>
-#include <algorithm>
-#include <random>
-#include <ctime>
 #include "mylib/rubik.h"
 #include "mylib/shader.h"
 #include "mylib/camera.h"
+
+// solver: https://github.com/jamesmtexas/Rubik
+#include "mylib/solver.hpp"
+#include "Cube.hpp"
+#include "Centers.hpp"
+#include "Cross.hpp"
+#include "Corners.hpp"
+#include "Edges.hpp"
+#include "OLL.hpp"
+#include "PLL.hpp"
 
 using std::cout;
 using std::endl;
@@ -34,17 +42,12 @@ using std::vector;
 using std::map;
 using std::pair;
 using std::string;
-using std::time;
-using std::srand;
-using std::rand;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 
 void simulation(vector<string> movements);
-vector<string> randomMovements(int n_movs);
-vector<string> rubik_solver(vector<string> movements);
 
 string path = std::filesystem::absolute(__FILE__).string() + "/../";
 string shader_path = path + "mylib/shader_code/";
@@ -63,6 +66,32 @@ rubik_side::Side side;
 bool moved = true;
 bool counter_clockwise = true;
 
+// Map movs variables
+vector<string> map_movs;
+string clockwise_str;
+
+
+map<string, pair<rubik_side::Side, bool>> rubik_movs{
+    {"U'", {rubik_side::U, true}},
+    {"U", {rubik_side::U, false}},
+    {"D'", {rubik_side::D, true}},
+    {"D", {rubik_side::D, false}},
+    {"R'", {rubik_side::R, true}},
+    {"R", {rubik_side::R, false}},
+    {"L'", {rubik_side::L, true}},
+    {"L", {rubik_side::L, false}},
+    {"F'", {rubik_side::F, true}},
+    {"F", {rubik_side::F, false}},
+    {"B'", {rubik_side::B, true}},
+    {"B", {rubik_side::B, false}},
+    {"S'", {rubik_side::M, true}},
+    {"S", {rubik_side::M, false}},
+    {"E'", {rubik_side::E, true}},
+    {"E", {rubik_side::E, false}},
+    {"M'", {rubik_side::S, true}},
+    {"M", {rubik_side::S, false}}
+};
+
 // camera
 Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
 float lastX = SCR_WIDTH / 2.0f;
@@ -70,8 +99,8 @@ float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
 
 // lighting
-glm::vec3 lightPos(1.0f, 1.0f, 2.0f);
-glm::vec3 lightAmbient(0.2f, 0.2f, 0.2f);
+glm::vec3 lightPos(0.0f, 1.0f, 0.0f);
+glm::vec3 lightAmbient(0.5f, 0.5f, 0.5f);
 glm::vec3 lightDiffuse(0.5f, 0.5f, 0.5f);
 glm::vec3 lightSpecular(1.0f, 1.0f, 1.0f);
 float lightShininess = 5.0f;
@@ -82,8 +111,7 @@ float lastFrame = 0.0f;
 
 int main()
 {
-    srand(time(NULL));
-
+	srand(time(nullptr));
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -113,11 +141,7 @@ int main()
     Shader lighting_shader(light_shader.c_str(), light_frag.c_str());
     
     // Create drawables
-    rubik= new Rubik;
-
-    // Apply movements
-    vector<string> movs = randomMovements(100);
-    rubik->apply_movements(movs);
+    rubik = new Rubik;
 
     glPointSize(5.0f);
     glLineWidth(3.0f);
@@ -125,13 +149,13 @@ int main()
     glEnable(GL_CULL_FACE);
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); //GL_FILL:GL_LINE
 
+
     GLuint color_location = glGetUniformLocation(lighting_shader.ID, "color");
     lighting_shader.setInt("material.diffuse", 1);
     lighting_shader.setInt("material.specular", 1);
 
-    // Simulation of rubik movements
-    vector<string> solution = rubik_solver(movs);
-    std::thread(simulation, solution).detach();
+    //Simulation of rubik movements
+    //std::thread(simulation, movs).detach();
     
     while (!glfwWindowShouldClose(window))
     {
@@ -147,7 +171,8 @@ int main()
             if (rubik->rotate_side(side, counter_clockwise, move_step))
                 moved = true;
     
-        rubik->rotation_centroid(Vec4f(1.0f, 1.0f, 0.0f, 1.0f), 0.5f);
+        
+        //rubik->rotation_centroid(Vec4f(1.0f, 1.0f, 0.0f, 1.0f), 0.5f);
 
         // be sure to activate shader when setting uniforms/drawing objects
         lighting_shader.use();
@@ -178,6 +203,8 @@ int main()
     return 0;
 }
 
+// Input
+
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
@@ -200,6 +227,11 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     if (key == GLFW_KEY_S && (action == GLFW_PRESS || action == GLFW_REPEAT)){
         camera.processKeyboard(camera_movement::DOWN, deltaTime);
     }
+    
+    if (key == GLFW_KEY_C && (action == GLFW_PRESS || action == GLFW_REPEAT)){
+        rubik = new Rubik;
+        map_movs.clear();
+    }
 
     if (key == GLFW_KEY_F && (action == GLFW_PRESS || action == GLFW_REPEAT))
         camera.processKeyboard2(camera_movement::LEFT, deltaTime);
@@ -211,41 +243,92 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
         camera.processKeyboard2(camera_movement::DOWN, deltaTime);
     
     if (movsEnabled){ // Disable movement when simulation is running
+        // Solver
+		if (key == GLFW_KEY_Z && action == GLFW_PRESS){
+			string movements;
+			for (auto& mov : map_movs) {
+				movements += mov + " ";
+			}
+			std::cout << "Movements: " << movements << "\n";
+			
+			solver::Cube myCube(false);
+			movements = solver::format(movements);
+			myCube.moves(movements, false);
+			// myCube.output();
+			solver::Centers::solveCenters(myCube);
+			//std::cout << "Centers solved: " << myCube.solution << "\n";
+			//myCube.output();
+            solver::Cross::solveCross(myCube);
+			//std::cout << "Cross solved\n";// << myCube.solution << "\n";
+			//myCube.output();
+			solver::Corners::solveCorners(myCube);
+			//std::cout << "Corners solved\n";// << myCube.solution << "\n";
+			//myCube.output();
+			solver::Edges::solveEdges(myCube);
+			//std::cout << "Edges solved\n";
+			solver::OLL::solveOLL(myCube);
+			//std::cout << "OLL solved\n";
+			solver::PLL::solvePLL(myCube);
+			//std::cout << "PLL solved\n";
+			
+			std::cout << "Solution: " << myCube.solution << "\n\n";
+			
+			std::thread(simulation, solver::split(myCube.solution)).detach();
+            map_movs.clear();
+        }
+
+        // Movements by keyboard
+		if (glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS && moved){
+            counter_clockwise = true;
+            clockwise_str = "'";
+        } else if ( moved ) {
+            counter_clockwise = false;
+            clockwise_str = "";
+        }
         if (key == GLFW_KEY_KP_4 && action == GLFW_PRESS && moved){
             side = rubik_side::L;
             moved = false;
+            map_movs.push_back("L" + clockwise_str);
         }
         if (key == GLFW_KEY_KP_6 && action == GLFW_PRESS && moved){
             side = rubik_side::R;
             moved = false;
+            map_movs.push_back("R" + clockwise_str);
         }
         if (key == GLFW_KEY_KP_8 && action == GLFW_PRESS && moved){
             side = rubik_side::U;
             moved = false;
+            map_movs.push_back("U" + clockwise_str);
         }
-        if (key == GLFW_KEY_KP_2 && action == GLFW_PRESS && moved){
+        if (key == GLFW_KEY_KP_5 && action == GLFW_PRESS && moved){
             side = rubik_side::D;
             moved = false;
+            map_movs.push_back("D" + clockwise_str);
         }
         if (key == GLFW_KEY_KP_7 && action == GLFW_PRESS && moved){
             side = rubik_side::F;
             moved = false;
+            map_movs.push_back("F" + clockwise_str);
         }
         if (key == GLFW_KEY_KP_9 && action == GLFW_PRESS && moved){
             side = rubik_side::B;
             moved = false;
+            map_movs.push_back("B" + clockwise_str);
         }
         if (key == GLFW_KEY_KP_1 && action == GLFW_PRESS && moved){
             side = rubik_side::M;
             moved = false;
+            map_movs.push_back("S" + clockwise_str);
         }
-        if (key == GLFW_KEY_KP_5 && action == GLFW_PRESS && moved){
+        if (key == GLFW_KEY_KP_2 && action == GLFW_PRESS && moved){
             side = rubik_side::E;
             moved = false;
+            map_movs.push_back("E" + clockwise_str);
         }
         if (key == GLFW_KEY_KP_3 && action == GLFW_PRESS && moved){
             side = rubik_side::S;
             moved = false;
+            map_movs.push_back("M" + clockwise_str);
         }
     }
 }
@@ -262,32 +345,15 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 
 void simulation(vector<string> movements){
     movsEnabled = false;
-    int i = 0;
-    while (i < movements.size()){
+    int i = 0, n_movs = movements.size();
+    while (i < n_movs){
         if (moved){
             side = rubik_movs[movements[i]].first;
-            counter_clockwise = rubik_movs[movements[i++]].second;
+            counter_clockwise = rubik_movs[movements[i]].second;
             moved = false;
+            i++;
         }
         std::this_thread::sleep_for(std::chrono::microseconds(10));
     }
     movsEnabled = true;
-}
-
-vector<string> randomMovements(int n_movs){
-    vector<string> valid_movs = {"U+", "U-", "D+", "D-", "L+", "L-", "R+", "R-", "F+", "F-", "B+", "B-", "M+", "M-", "E+", "E-", "S+", "S-"};
-    vector<string> movs;
-    for (int i = 0; i < n_movs; i++){
-        int mov = rand() % valid_movs.size();
-        movs.push_back(valid_movs[mov]);
-    }
-    return movs;
-}
-
-vector<string> rubik_solver(vector<string> movements){
-    std::reverse(movements.begin(), movements.end());
-    for (auto &movement : movements){
-        movement[1] = (movement[1] == '+') ? '-' : '+';
-    }
-    return movements;
 }

@@ -1,4 +1,4 @@
-project( project_final )
+project( rubik2 )
 
 message( "Source of application:  ${CMAKE_SOURCE_DIR} " )
 message( "Subproject name:  ${PROJECT_NAME} " )
@@ -16,7 +16,7 @@ link_libraries(glfw)
 
 include_directories(
 "${GLFW_SOURCE_DIR}/deps"
-"${GLFW_SOURCE_DIR}/OwnProjects/Project_01/"
+"${GLFW_SOURCE_DIR}/OwnProjects/project_rubikv2/"
 )
 
 if (MATH_LIBRARY)

@@ -7,7 +7,7 @@
 #include <vector>
 #include <iostream>
 
-const float SPEED = 2.5f;
+const float SPEED = 10.5f;
 const float SENSITIVITY = 0.8f;
 const float ZOOM = 45.0f;
 namespace camera_movement {

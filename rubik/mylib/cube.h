@@ -34,21 +34,7 @@ public:
     void set_color(Vec4f color){ this->color = color; }
     Vec4f get_centroid(){ return this->centroid; }
     Vec4f get_color(){ return this->color; }
-    // vector<float> get_vertices();
 };
-
-// vector<float> Quad::get_vertices(){
-//     vector<float> vertices_;
-//     Vec4f a = this->vertices[1]- this->vertices[0];
-//     Vec4f b = this->vertices[3]- this->vertices[0];
-//     vector<float> normal = (a.cross(b)).to_vec();
-//     for(auto vertex : this->vertices){
-//         vector<float> vertex_= vertex.to_vec();
-//         vertices_.insert(vertices_.end(), vertex_.begin(), vertex_.end());
-//         vertices_.insert(vertices_.end(), normal.begin(), normal.end());
-//     }
-//     return vertices_;
-// }
 
 vector<Vec4f> quads_vertices({
     Vec4f(-SIZE, -SIZE, -SIZE, 1.0f),
